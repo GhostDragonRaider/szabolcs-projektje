@@ -573,7 +573,7 @@ const globalStyles = css`
 
 type Slot = { id: number; date: string; time: string; status: string }
 
-const API_BASE = "http://localhost:8000"
+const API_BASE = "" // relatív: /api → proxy a backendre (dev és production)
 const DAY_NAMES: Record<number, string> = {
   0: "vasárnap", 1: "hétfő", 2: "kedd", 3: "szerda",
   4: "csütörtök", 5: "péntek", 6: "szombat",

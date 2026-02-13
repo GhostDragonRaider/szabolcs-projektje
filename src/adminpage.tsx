@@ -2,7 +2,7 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import styled from "@emotion/styled"
 
-const API_BASE = "http://localhost:8000"
+const API_BASE = "" // relatív: /api → proxy a backendre (dev és production)
 const ADMIN_KEY = "admin_session"
 
 type BookedSlot = {
