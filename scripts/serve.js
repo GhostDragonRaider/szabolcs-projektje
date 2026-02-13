@@ -40,8 +40,9 @@ if (isDev) {
   })
 }
 
-app.listen(port, () => {
-  console.log(`Server: http://localhost:${port}`)
+const host = process.env.HOST || "0.0.0.0"
+app.listen(port, host, () => {
+  console.log(`Server: http://${host}:${port}`)
   console.log(`/api → ${API_BACKEND} (indítsd a backendet: uvicorn server:app --reload --port 8000)`)
   if (isDev) console.log("Dev mode: build runs in watch mode, refresh the page after changes.")
 })
