@@ -58,12 +58,14 @@ def which():
 
 
 @app.get("/api/slots")
+@app.get("/slots")
 def get_slots():
     """Időpontok az adatbázisból – a scedule_appointment.tsx ezt várja: id, date, time, status."""
     return db.get_slots()
 
 
 @app.post("/api/book")
+@app.post("/book")
 def book_appointment(data: BookRequest):
     """Időpont foglalása. A foglaló neve, telefonszám és e-mail a kliensből jön."""
     ok = db.book_slot(data.slot_id, data.booking_name, data.phone, data.email)
@@ -73,6 +75,7 @@ def book_appointment(data: BookRequest):
 # --- Admin API ---
 
 @app.get("/api/admin/bookings")
+@app.get("/admin/bookings")
 def get_admin_bookings():
     """Csak a lefoglalt időpontok listája."""
     return db.get_booked_slots()
@@ -85,6 +88,7 @@ class UpdateBookingRequest(BaseModel):
 
 
 @app.patch("/api/admin/bookings/{slot_id}")
+@app.patch("/admin/bookings/{slot_id}")
 def update_admin_booking(slot_id: int, data: UpdateBookingRequest):
     """Foglalás módosítása."""
     ok = db.update_booking(slot_id, data.booking_name, data.phone, data.email)
@@ -92,6 +96,7 @@ def update_admin_booking(slot_id: int, data: UpdateBookingRequest):
 
 
 @app.delete("/api/admin/bookings/{slot_id}")
+@app.delete("/admin/bookings/{slot_id}")
 def delete_admin_booking(slot_id: int):
     """Foglalás törlése."""
     ok = db.cancel_booking(slot_id)
