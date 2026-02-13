@@ -208,3 +208,27 @@ def cancel_booking(slot_id: int) -> bool:
             (slot_id,),
         )
         return cur.rowcount > 0
+
+
+def move_booking(
+    old_slot_id: int,
+    new_slot_id: int,
+    booking_name: str,
+    phone: str = "",
+    email: str = "",
+) -> bool:
+    """Foglalás áthelyezése egyik időpontból a másikba."""
+    if old_slot_id == new_slot_id:
+        return update_booking(old_slot_id, booking_name, phone, email)
+    with get_connection() as conn:
+        cur = conn.execute(
+            "UPDATE slots SET booking_name = ?, phone = ?, email = ?, status = 'booked' WHERE id = ? AND status = 'free'",
+            (booking_name or "", phone or "", email or "", new_slot_id),
+        )
+        if cur.rowcount == 0:
+            return False
+        conn.execute(
+            "UPDATE slots SET status = 'free', booking_name = NULL, phone = NULL, email = NULL WHERE id = ?",
+            (old_slot_id,),
+        )
+        return True

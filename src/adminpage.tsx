@@ -405,6 +405,9 @@ export default function AdminPage() {
   const [editName, setEditName] = useState("")
   const [editPhone, setEditPhone] = useState("")
   const [editEmail, setEditEmail] = useState("")
+  const [editSlotId, setEditSlotId] = useState<number | null>(null)
+  const [availableSlotsForEdit, setAvailableSlotsForEdit] = useState<Slot[]>([])
+  const [editSlotsLoading, setEditSlotsLoading] = useState(false)
 
   const [showAddModal, setShowAddModal] = useState(false)
   const [freeSlots, setFreeSlots] = useState<Slot[]>([])
@@ -506,20 +509,49 @@ export default function AdminPage() {
       setEditName(selected.booking_name || "")
       setEditPhone(selected.phone || "")
       setEditEmail(selected.email || "")
+      setEditSlotId(selected.id)
       setEditMode(false)
     }
   }, [selected])
 
+  useEffect(() => {
+    if (editMode && selected) {
+      setEditSlotsLoading(true)
+      fetch(`${API_BASE}/api/slots`)
+        .then(async (r) => {
+          const text = await r.text()
+          try {
+            return JSON.parse(text)
+          } catch {
+            return []
+          }
+        })
+        .then((data: unknown) => {
+          const arr = Array.isArray(data) ? data : []
+          const available = arr.filter(
+            (s: Slot) => s?.status === "free" || s?.id === selected.id
+          ) as Slot[]
+          setAvailableSlotsForEdit(available)
+        })
+        .catch(() => setAvailableSlotsForEdit([]))
+        .finally(() => setEditSlotsLoading(false))
+    }
+  }, [editMode, selected])
+
   const handleUpdate = () => {
     if (!selected) return
+    const payload: Record<string, unknown> = {
+      booking_name: editName,
+      phone: editPhone,
+      email: editEmail,
+    }
+    if (editSlotId != null) {
+      payload.new_slot_id = editSlotId
+    }
     fetch(`${API_BASE}/api/admin/bookings/${selected.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        booking_name: editName,
-        phone: editPhone,
-        email: editEmail,
-      }),
+      body: JSON.stringify(payload),
     })
       .then(async (r) => {
         try {
@@ -532,7 +564,11 @@ export default function AdminPage() {
         if (res.ok) {
           setEditMode(false)
           loadBookings()
-          setSelected({ ...selected, booking_name: editName, phone: editPhone, email: editEmail })
+          if (editSlotId != null && editSlotId !== selected.id) {
+            setSelected(null)
+          } else {
+            setSelected({ ...selected, booking_name: editName, phone: editPhone, email: editEmail })
+          }
         }
       })
   }
@@ -684,6 +720,23 @@ export default function AdminPage() {
             </>
           ) : (
             <EditForm>
+              <Label>Időpont</Label>
+              {editSlotsLoading ? (
+                <LoadingText style={{ marginBottom: "0.5rem" }}>Időpontok betöltése…</LoadingText>
+              ) : (
+              <SlotGrid>
+                {availableSlotsForEdit.map((s) => (
+                  <SlotChip
+                    key={s.id}
+                    type="button"
+                    selected={editSlotId === s.id}
+                    onClick={() => setEditSlotId(s.id)}
+                  >
+                    {s.date} {s.time}
+                  </SlotChip>
+                ))}
+              </SlotGrid>
+              )}
               <Label>
                 Foglaló neve
                 <Input
