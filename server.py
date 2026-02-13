@@ -336,10 +336,9 @@ def _handle_message_text(sender_id: str, text: str) -> None:
                 f"E-mail: {email}\n\n"
                 f"Várjuk a 3980 Sátoraljaújhely, Hősök tere út 2 címen.\n"
                 f"Szolgáltatás díja: 30 € / 11 000 Ft\n\n"
-                f"Kérdés? blazsi88@gmail.com"
+                f"Kérdés esetén érdeklődjön az alábbi e-mail címen:\nblazsi88@gmail.com"
             )
             _send_text(sender_id, msg)
-            _send_greeting_with_button(sender_id)
         else:
             _send_text(sender_id, "Sajnos az időpont már foglalt. Válassz másik időpontot.")
             if day_back:
