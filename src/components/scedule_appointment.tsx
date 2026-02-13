@@ -604,14 +604,24 @@ export default function SceduleAppointment() {
   useEffect(() => {
     const ctrl = new AbortController()
     fetch(`${API_BASE}/api/slots`, { signal: ctrl.signal })
-      .then((r) => r.json())
-      .then((data) => { setSlots(data); setError(null) })
-      .catch((e) => { if (e.name !== "AbortError") setError(e.message) })
+      .then(async (r) => {
+        const text = await r.text()
+        try {
+          return JSON.parse(text)
+        } catch {
+          return []
+        }
+      })
+      .then((data) => {
+        setSlots(Array.isArray(data) ? data : [])
+        setError(null)
+      })
+      .catch((e) => { if (e.name !== "AbortError") setError(e.message || "Betöltési hiba") })
       .finally(() => setLoading(false))
     return () => ctrl.abort()
   }, [])
 
-  const byDate = slots.reduce<Record<string, Slot[]>>((acc, s) => {
+  const byDate = (slots || []).reduce<Record<string, Slot[]>>((acc, s) => {
     if (!acc[s.date]) acc[s.date] = []
     acc[s.date].push(s)
     return acc
@@ -630,7 +640,13 @@ export default function SceduleAppointment() {
         email: bookingEmail,
       }),
     })
-      .then((r) => r.json())
+      .then(async (r) => {
+        try {
+          return await r.json()
+        } catch {
+          return { ok: false }
+        }
+      })
       .then((res) => {
         if (res.ok) {
           const therapyLabel = selectedTherapy === "manuál" ? "Manuál terápia" : "Köpöly terápia"

@@ -417,12 +417,22 @@ export default function AdminPage() {
 
   const loadBookings = () => {
     fetch(`${API_BASE}/api/admin/bookings`)
-      .then((r) => r.json())
+      .then(async (r) => {
+        const text = await r.text()
+        try {
+          return JSON.parse(text)
+        } catch {
+          return []
+        }
+      })
       .then((data) => {
-        setBookings(data)
+        setBookings(Array.isArray(data) ? data : [])
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch(() => {
+        setBookings([])
+        setLoading(false)
+      })
   }
 
   useEffect(() => {
@@ -438,9 +448,17 @@ export default function AdminPage() {
     setAddError("")
     setAddModalLoading(true)
     fetch(`${API_BASE}/api/slots`)
-      .then((r) => r.json())
-      .then((data: Slot[]) => {
-        setFreeSlots(data.filter((s) => s.status === "free"))
+      .then(async (r) => {
+        const text = await r.text()
+        try {
+          return JSON.parse(text)
+        } catch {
+          return []
+        }
+      })
+      .then((data: unknown) => {
+        const arr = Array.isArray(data) ? data : []
+        setFreeSlots(arr.filter((s: Slot) => s?.status === "free"))
         setAddModalLoading(false)
       })
       .catch(() => {
@@ -465,7 +483,13 @@ export default function AdminPage() {
         email: addEmail,
       }),
     })
-      .then((r) => r.json())
+      .then(async (r) => {
+        try {
+          return await r.json()
+        } catch {
+          return { ok: false }
+        }
+      })
       .then((res) => {
         if (res.ok) {
           setShowAddModal(false)
@@ -497,7 +521,13 @@ export default function AdminPage() {
         email: editEmail,
       }),
     })
-      .then((r) => r.json())
+      .then(async (r) => {
+        try {
+          return await r.json()
+        } catch {
+          return { ok: false }
+        }
+      })
       .then((res) => {
         if (res.ok) {
           setEditMode(false)
@@ -510,7 +540,13 @@ export default function AdminPage() {
   const handleDelete = () => {
     if (!selected || !confirm("Biztosan törölni szeretnéd a foglalást?")) return
     fetch(`${API_BASE}/api/admin/bookings/${selected.id}`, { method: "DELETE" })
-      .then((r) => r.json())
+      .then(async (r) => {
+        try {
+          return await r.json()
+        } catch {
+          return { ok: false }
+        }
+      })
       .then((res) => {
         if (res.ok) {
           setSelected(null)
