@@ -54,6 +54,18 @@ Sikeres indításnál a terminálban: `>>> PROJECT1 server.py fut a 8000-es port
 `{"status":"ok","app":"project1","message":"Ez a project1/server.py – ha ezt látod, a helyes szerver fut."}`  
 Ha más szöveg jön → más szerver fut 8000-en.
 
+## Emlékeztető e-mail
+
+Az időpont 1 órával előtt a rendszer automatikusan e-mailt küld a foglalónak. Beállítás környezeti változókkal:
+
+- `SMTP_HOST` – SMTP szerver (pl. smtp.gmail.com)
+- `SMTP_PORT` – port (általában 587)
+- `SMTP_USER` – SMTP felhasználónév
+- `SMTP_PASS` – SMTP jelszó
+- `REMINDER_FROM_EMAIL` – (opcionális) feladó e-mail cím
+
+Ha nincs beállítva → emlékeztető nem küldhető (log üzenet).
+
 ## Struktúra
 
 ```

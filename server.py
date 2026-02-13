@@ -6,10 +6,18 @@ Indítás (EBBA a projekt mappába, ahol a server.py van):
 
 Ha a böngészőben nem ez a szöveg jelenik meg → a 8000-es porton MÁS fut.
 Állítsd le (Ctrl+C), majd indítsd ezt a server.py-t a fenti paranccsal.
+
+Emlékeztető e-mail: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, REMINDER_FROM_EMAIL env.
 """
 import os
+import re
+import smtplib
+import threading
+import time
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
@@ -17,6 +25,19 @@ from pydantic import BaseModel
 import httpx
 
 import db
+
+# Validáció: magyar telefon (min. 9 számjegy), e-mail (xxx@yyy.zz)
+def _is_valid_phone(s: str) -> bool:
+    if not s or not isinstance(s, str):
+        return False
+    digits = re.sub(r"\D", "", s)
+    return len(digits) >= 9
+
+
+def _is_valid_email(s: str) -> bool:
+    if not s or not isinstance(s, str):
+        return False
+    return bool(re.match(r"^[^\s@]+@[^\s@]+\.[^\s@]+$", s.strip()))
 
 MESSENGER_VERIFY_TOKEN = os.environ.get("MESSENGER_VERIFY_TOKEN", "chirostrong_webhook_2025")
 MESSENGER_PAGE_ACCESS_TOKEN = os.environ.get("MESSENGER_PAGE_ACCESS_TOKEN", "")
@@ -49,9 +70,68 @@ app.add_middleware(
 
 
 
+REMINDER_INTERVAL_MIN = 15
+_scheduler_stop = threading.Event()
+
+
+def _send_reminder_email(to_email: str, name: str, slot_date: str, slot_time: str) -> bool:
+    """Emlékeztető e-mail küldése."""
+    host = os.environ.get("SMTP_HOST")
+    port = int(os.environ.get("SMTP_PORT", "587"))
+    user = os.environ.get("SMTP_USER")
+    password = os.environ.get("SMTP_PASS")
+    from_addr = os.environ.get("REMINDER_FROM_EMAIL", user or "noreply@example.com")
+    if not host or not user or not password:
+        print("[Reminder] SMTP nincs beállítva (SMTP_HOST, SMTP_USER, SMTP_PASS). E-mail nem küldhető.")
+        return False
+    body = (
+        f"Kedves {name}!\n\n"
+        f"Emlékeztetjük: várunk szeretettel az időpontodon ({slot_date} {slot_time}). Ne feledkezz el róla!\n\n"
+        f"Időpont: {slot_date} – {slot_time}\n"
+        f"Cím: 3980 Sátoraljaújhely, Hősök tere út 2\n\n"
+        f"Szolgáltatás díja: 30 € / 11 000 Ft\n\n"
+        f"Üdvözlettel,\nChiroStrong"
+    )
+    msg = MIMEMultipart()
+    msg["From"] = from_addr
+    msg["To"] = to_email
+    msg["Subject"] = f"ChiroStrong – emlékeztető: {slot_date} {slot_time}"
+    msg.attach(MIMEText(body, "plain", "utf-8"))
+    try:
+        with smtplib.SMTP(host, port) as s:
+            s.starttls()
+            s.login(user, password)
+            s.sendmail(from_addr, [to_email], msg.as_string())
+        print(f"[Reminder] E-mail küldve: {to_email} ({slot_date} {slot_time})")
+        return True
+    except Exception as e:
+        print(f"[Reminder] E-mail hiba: {e}")
+        return False
+
+
+def _run_reminders():
+    """Emlékeztetők ellenőrzése és küldése."""
+    while not _scheduler_stop.is_set():
+        try:
+            for booking in db.get_bookings_needing_reminder():
+                email = (booking.get("email") or "").strip()
+                name = booking.get("booking_name") or "Kedves vendég"
+                slot_date = booking.get("date", "")
+                slot_time = booking.get("time", "")
+                slot_id = booking.get("id")
+                if email and slot_id:
+                    if _send_reminder_email(email, name, slot_date, slot_time):
+                        db.mark_reminder_sent(slot_id)
+        except Exception as e:
+            print(f"[Reminder] Hiba: {e}")
+        _scheduler_stop.wait(timeout=REMINDER_INTERVAL_MIN * 60)
+
+
 @app.on_event("startup")
 def startup():
     db.init_db()
+    t = threading.Thread(target=_run_reminders, daemon=True)
+    t.start()
     print("\n>>> PROJECT1 server.py fut a 8000-es porton <<<")
     print(">>> Ha a böngészőben nem ezt látod, más szerver fut 8000-en – állítsd le. <<<\n")
 
@@ -82,6 +162,10 @@ def get_slots():
 @app.post("/book")
 def book_appointment(data: BookRequest):
     """Időpont foglalása. A foglaló neve, telefonszám és e-mail a kliensből jön."""
+    if not _is_valid_phone(data.phone):
+        return {"ok": False, "error": "Érvényes telefonszámot adj meg (pl. +36 30 123 4567 vagy 06 30 123 4567)."}
+    if not _is_valid_email(data.email):
+        return {"ok": False, "error": "Érvényes e-mail címet adj meg (pl. pelda@email.hu)."}
     ok = db.book_slot(data.slot_id, data.booking_name, data.phone, data.email)
     return {"ok": ok, "slot_id": data.slot_id}
 
@@ -106,6 +190,10 @@ class UpdateBookingRequest(BaseModel):
 @app.patch("/admin/bookings/{slot_id}")
 def update_admin_booking(slot_id: int, data: UpdateBookingRequest):
     """Foglalás módosítása (adatok és/vagy időpont)."""
+    if not _is_valid_phone(data.phone):
+        return {"ok": False, "error": "Érvényes telefonszámot adj meg."}
+    if not _is_valid_email(data.email):
+        return {"ok": False, "error": "Érvényes e-mail címet adj meg."}
     if data.new_slot_id is not None and data.new_slot_id != slot_id:
         ok = db.move_booking(slot_id, data.new_slot_id, data.booking_name, data.phone, data.email)
     else:
@@ -320,12 +408,20 @@ def _handle_message_text(sender_id: str, text: str) -> None:
         _send_text(sender_id, "Add meg a telefonszámod:")
         return
     if step == "ask_phone":
-        state["phone"] = (text or "").strip()
+        phone = (text or "").strip()
+        if not _is_valid_phone(phone):
+            _send_text(sender_id, "Érvényes telefonszámot adj meg (pl. +36 30 123 4567 vagy 06 30 123 4567). Próbáld újra:")
+            return
+        state["phone"] = phone
         state["step"] = "ask_email"
         _send_text(sender_id, "Add meg az e-mail címed:")
         return
     if step == "ask_email":
-        state["email"] = (text or "").strip()
+        email = (text or "").strip()
+        if not _is_valid_email(email):
+            _send_text(sender_id, "Érvényes e-mail címet adj meg (pl. pelda@email.hu). Próbáld újra:")
+            return
+        state["email"] = email
         name = state.get("name", "")
         phone = state.get("phone", "")
         email = state.get("email", "")

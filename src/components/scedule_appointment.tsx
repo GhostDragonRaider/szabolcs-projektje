@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import styled from "@emotion/styled"
 import { keyframes, css, Global } from "@emotion/react"
+import { isValidPhone, isValidEmail, PHONE_ERROR, EMAIL_ERROR } from "../validation"
 
 
 const Page = styled.div`
@@ -630,6 +631,14 @@ export default function SceduleAppointment() {
   const handleBook = () => {
     if (!selectedSlot) return
     setBookingError(null)
+    if (!isValidPhone(bookingPhone.trim())) {
+      setBookingError(PHONE_ERROR)
+      return
+    }
+    if (!isValidEmail(bookingEmail.trim())) {
+      setBookingError(EMAIL_ERROR)
+      return
+    }
     fetch(`${API_BASE}/api/book`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -660,7 +669,7 @@ export default function SceduleAppointment() {
             prev.map((s) => (s.id === selectedSlot.id ? { ...s, status: "booked" } : s))
           )
         } else {
-          setBookingError("A foglalás sikertelen. Próbáld újra.")
+          setBookingError(res.error || "A foglalás sikertelen. Próbáld újra.")
         }
       })
       .catch(() => setBookingError("Hiba történt. Próbáld újra."))

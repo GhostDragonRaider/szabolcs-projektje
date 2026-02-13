@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import styled from "@emotion/styled"
+import { isValidPhone, isValidEmail, PHONE_ERROR, EMAIL_ERROR } from "./validation"
 
 const API_BASE = "" // relatív: /api → proxy a backendre (dev és production)
 const ADMIN_KEY = "admin_session"
@@ -417,6 +418,7 @@ export default function AdminPage() {
   const [addPhone, setAddPhone] = useState("")
   const [addEmail, setAddEmail] = useState("")
   const [addError, setAddError] = useState("")
+  const [editError, setEditError] = useState("")
 
   const loadBookings = () => {
     fetch(`${API_BASE}/api/admin/bookings`)
@@ -475,6 +477,14 @@ export default function AdminPage() {
       setAddError("Válassz egy időpontot.")
       return
     }
+    if (!isValidPhone(addPhone.trim())) {
+      setAddError(PHONE_ERROR)
+      return
+    }
+    if (!isValidEmail(addEmail.trim())) {
+      setAddError(EMAIL_ERROR)
+      return
+    }
     setAddError("")
     fetch(`${API_BASE}/api/book`, {
       method: "POST",
@@ -511,6 +521,7 @@ export default function AdminPage() {
       setEditEmail(selected.email || "")
       setEditSlotId(selected.id)
       setEditMode(false)
+      setEditError("")
     }
   }, [selected])
 
@@ -540,6 +551,15 @@ export default function AdminPage() {
 
   const handleUpdate = () => {
     if (!selected) return
+    setEditError("")
+    if (!isValidPhone(editPhone.trim())) {
+      setEditError(PHONE_ERROR)
+      return
+    }
+    if (!isValidEmail(editEmail.trim())) {
+      setEditError(EMAIL_ERROR)
+      return
+    }
     const payload: Record<string, unknown> = {
       booking_name: editName,
       phone: editPhone,
@@ -563,12 +583,15 @@ export default function AdminPage() {
       .then((res) => {
         if (res.ok) {
           setEditMode(false)
+          setEditError("")
           loadBookings()
           if (editSlotId != null && editSlotId !== selected.id) {
             setSelected(null)
           } else {
             setSelected({ ...selected, booking_name: editName, phone: editPhone, email: editEmail })
           }
+        } else {
+          setEditError(res.error || "Módosítás sikertelen.")
         }
       })
   }
@@ -720,6 +743,7 @@ export default function AdminPage() {
             </>
           ) : (
             <EditForm>
+              {editError && <ModalError>{editError}</ModalError>}
               <Label>Időpont</Label>
               {editSlotsLoading ? (
                 <LoadingText style={{ marginBottom: "0.5rem" }}>Időpontok betöltése…</LoadingText>

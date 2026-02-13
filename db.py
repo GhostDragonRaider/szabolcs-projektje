@@ -7,7 +7,7 @@ Tábla: id, date, time, status, booking_name
 """
 import sqlite3
 from contextlib import contextmanager
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from calendar import monthrange
 from pathlib import Path
 
@@ -92,6 +92,7 @@ def init_db():
                 booking_name TEXT,
                 phone TEXT,
                 email TEXT,
+                reminder_sent INTEGER DEFAULT 0,
                 UNIQUE(date, time)
             )
         """)
@@ -101,6 +102,10 @@ def init_db():
             pass
         try:
             conn.execute("ALTER TABLE slots ADD COLUMN email TEXT")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE slots ADD COLUMN reminder_sent INTEGER DEFAULT 0")
         except sqlite3.OperationalError:
             pass
         _ensure_slots_exist(conn)
@@ -155,7 +160,8 @@ def book_slot(slot_id: int, booking_name: str, phone: str = "", email: str = "")
         except sqlite3.OperationalError:
             pass
         cur = conn.execute(
-            "UPDATE slots SET booking_name = ?, phone = ?, email = ?, status = 'booked' WHERE id = ? AND status = 'free'",
+            """UPDATE slots SET booking_name = ?, phone = ?, email = ?, status = 'booked', reminder_sent = 0
+               WHERE id = ? AND status = 'free'""",
             (booking_name, phone or "", email or "", slot_id),
         )
         return cur.rowcount > 0
@@ -196,6 +202,44 @@ def update_booking(slot_id: int, booking_name: str, phone: str = "", email: str 
         cur = conn.execute(
             "UPDATE slots SET booking_name = ?, phone = ?, email = ? WHERE id = ? AND status = 'booked'",
             (booking_name, phone or "", email or "", slot_id),
+        )
+        return cur.rowcount > 0
+
+
+def get_bookings_needing_reminder() -> list[dict]:
+    """Lefoglalt időpontok, amelyek ~1 óra múlva kezdődnek és még nem kaptak emlékeztetőt."""
+    with get_connection() as conn:
+        now = datetime.now()
+        # 50–70 perc múlva kezdődő időpontok (ablak a cron hibák elkerülésére)
+        margin_start = now + timedelta(minutes=50)
+        margin_end = now + timedelta(minutes=70)
+        rows = conn.execute(
+            """
+            SELECT id, date, time, booking_name, email
+            FROM slots
+            WHERE (status = 'booked' OR COALESCE(booking_name, '') != '')
+              AND COALESCE(reminder_sent, 0) = 0
+              AND email IS NOT NULL AND email != ''
+            """
+        ).fetchall()
+        result = []
+        for row in rows:
+            d = dict(row)
+            try:
+                dt = datetime.strptime(f"{d['date']} {d['time']}", "%Y-%m-%d %H:%M")
+                if margin_start <= dt <= margin_end:
+                    result.append(d)
+            except (ValueError, TypeError):
+                pass
+        return result
+
+
+def mark_reminder_sent(slot_id: int) -> bool:
+    """Emlékeztető kiküldve jelölés."""
+    with get_connection() as conn:
+        cur = conn.execute(
+            "UPDATE slots SET reminder_sent = 1 WHERE id = ?",
+            (slot_id,),
         )
         return cur.rowcount > 0
 
