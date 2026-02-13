@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+project1-venv/
+*.egg-info/
+.eggs/
+
+# Build
+dist/
+
+# Database (lokális – ne töltsd fel)
+app.db
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
