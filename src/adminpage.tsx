@@ -598,7 +598,7 @@ export default function AdminPage() {
         <Title>Admin panel – Foglalt időpontok</Title>
         <HeaderActions>
           <AddBookingButton type="button" onClick={openAddModal}>
-            Papír alapú foglalás felvétele
+            Foglalás hozzáadása manuálisan
           </AddBookingButton>
           <LogoutButton type="button" onClick={handleLogout}>
             Kijelentkezés
@@ -609,7 +609,7 @@ export default function AdminPage() {
       {showAddModal && (
         <ModalOverlay onClick={() => setShowAddModal(false)}>
           <ModalBox onClick={(e) => e.stopPropagation()}>
-            <ModalTitle>Papír alapú foglalás felvétele</ModalTitle>
+            <ModalTitle>Foglalás hozzáadása manuálisan</ModalTitle>
             {addModalLoading ? (
               <LoadingText>Elérhető időpontok betöltése…</LoadingText>
             ) : (

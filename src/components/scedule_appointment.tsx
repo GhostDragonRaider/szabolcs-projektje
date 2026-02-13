@@ -10,7 +10,6 @@ const Page = styled.div`
   background: radial-gradient(circle at top, #f7f2ea 0%, #f2f7f5 45%, #edf3f7 100%);
   color: #1c1c1c;
   position: relative;
-  overflow-x: hidden;
 
   @media (max-width: 768px) {
     padding: 2rem 1rem 3rem;
@@ -211,6 +210,7 @@ const DateGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 1rem;
+  overflow: visible;
 
   @media (max-width: 900px) {
     grid-template-columns: repeat(4, 1fr);

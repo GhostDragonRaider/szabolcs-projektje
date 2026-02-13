@@ -243,6 +243,19 @@ def _handle_postback(sender_id: str, payload: str) -> None:
         state.clear()
         _send_greeting_with_button(sender_id)
 
+    elif payload.startswith("CANCEL_SLOT:"):
+        try:
+            slot_id = int(payload.split(":", 1)[1])
+        except (ValueError, IndexError):
+            _send_text(sender_id, "Hiba történt.")
+            return
+        ok = db.cancel_booking(slot_id)
+        if ok:
+            _send_text(sender_id, "A jelenleg lefoglalt időpontod törlésre került.")
+            _send_buttons(sender_id, "Szeretnél új időpontot foglalni?", [{"title": "Új időpont foglalása", "payload": "BOOK_START"}])
+        else:
+            _send_text(sender_id, "Az időpont törlése sikertelen. Keress minket: blazsi88@gmail.com")
+
     elif payload.startswith("month:"):
         yyyy_mm = payload[6:]
         state["month"] = yyyy_mm
@@ -339,6 +352,7 @@ def _handle_message_text(sender_id: str, text: str) -> None:
                 f"Kérdés esetén érdeklődjön az alábbi e-mail címen:\nblazsi88@gmail.com"
             )
             _send_text(sender_id, msg)
+            _send_buttons(sender_id, "Ha meggondoltad magad, akkor:", [{"title": "Időpont lemondása", "payload": f"CANCEL_SLOT:{slot_id}"}])
         else:
             _send_text(sender_id, "Sajnos az időpont már foglalt. Válassz másik időpontot.")
             if day_back:
